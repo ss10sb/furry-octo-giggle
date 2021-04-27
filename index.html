@@ -54,7 +54,7 @@
         }
 
         .card {
-            border: 1px solid black;
+            /*border: 1px solid black;*/
         }
 
         .card * {
@@ -64,7 +64,7 @@
         .card .card-header {
             font-weight: bold;
             font-size: 1.25em;
-            border-bottom: 1px solid black;
+            /*border-bottom: 1px solid black;*/
             margin-bottom: .25em;
         }
 
@@ -271,8 +271,7 @@
         getLineItemsFromRatePlans(ratePlans) {
             let lineItems = [];
             ratePlans.forEach(function (ratePlan) {
-                const name = ratePlan.Name;
-                if (name.startsWith('Bundle:')) {
+                if (LineItems.isBundle(ratePlan)) {
                     lineItems.push(LineItems.getBundledLineItemFromRatePlan(ratePlan));
                 } else {
                     ratePlan.RatePlanCharges.forEach(function (rpc) {
@@ -281,6 +280,10 @@
                 }
             });
             return lineItems;
+        },
+        isBundle(ratePlan) {
+            const name = ratePlan.Name;
+            return name.startsWith('Bundle:');
         },
         setLineItemPeriodFromRatePlanCharge(lineItem, ratePlanCharge) {
             if (!lineItem.Period) {
