@@ -117,9 +117,9 @@
     <tr>
         <td><%= lineItem.Name %></td>
         <td><%= lineItem.Period %></td>
-        <td class="table-number"><%= Currency.format(lineItem.Price) %></td>
+        <td class="table-number"><%= currency.format(lineItem.Price) %></td>
         <td class="table-number"><%= lineItem.Quantity %></td>
-        <td class="table-number"><%= Currency.format(lineItem.Price * lineItem.Quantity) %></td>
+        <td class="table-number"><%= currency.format(lineItem.Price * lineItem.Quantity) %></td>
     </tr>
     <% }) %>
 </script>
@@ -133,23 +133,49 @@
 <script id="totals-template" type="text/template">
     <tr>
         <td colspan="4" class="total-label">Amount</td>
-        <td class="table-number"><%= Currency.format(invoice.AmountWithoutTax) %></td>
+        <td class="table-number"><%= currency.format(invoice.AmountWithoutTax) %></td>
     </tr>
     <tr>
         <td colspan="4" class="total-label">Tax</td>
-        <td class="table-number"><%= Currency.format(invoice.TaxAmount) %></td>
+        <td class="table-number"><%= currency.format(invoice.TaxAmount) %></td>
     </tr>
     <tr>
         <td colspan="4" class="total-label">Total</td>
-        <td class="table-number"><%= Currency.format(invoice.Amount) %></td>
+        <td class="table-number"><%= currency.format(invoice.Amount) %></td>
     </tr>
 </script>
 <script src="https://cdn.jsdelivr.net/npm/ejs@3.1.6/ejs.min.js"></script>
 <script src="data.js"></script>
 <script>
+
+    class Currency {
+        /**
+         * Create a new currency formatter
+         * @param {string} currency 'USD'
+         * @param {string} locale 'en-US'
+         */
+        constructor(currency = 'USD', locale = 'en-US') {
+            currency = currency || 'USD';
+            locale = locale || 'en-US';
+            self.formatter = new Intl.NumberFormat(locale, {
+                style: 'currency',
+                currency: currency
+            });
+        }
+
+        /**
+         * Format a number with the currency formatter
+         * @param value
+         * @returns {string}
+         */
+        format(value) {
+            value = parseFloat(value);
+            return self.formatter.format(value);
+        }
+    }
+
     /**
      * Retrieve object(s) from the Data object provided by Zuora
-     * @type {{getInvoice(): *, getAccount(): *, rawData: {}, getRatePlans(): *, getSubscription(): (*)}}
      */
     const DataProvider = {
         rawData: {},
@@ -163,48 +189,19 @@
             return DataProvider.rawData.RatePlan || [];
         },
         getSubscription() {
-            if (DataProvider.rawData.Subscription) {
-                return DataProvider.rawData.Subscription[0];
+            const subscriptions = DataProvider.getSubscriptions();
+            if (subscriptions.length) {
+                return subscriptions[0];
             }
             return {};
+        },
+        getSubscriptions() {
+            return DataProvider.rawData.Subscription || [];
         }
     };
 
     /**
-     * Handle currency formatting based on the Account's currency
-     * @type {{formatter: null, setCurrencyFromAccount(*=): void, format(*=): *, currency: string, getFormatter(): null, setCurrency(*=): void}}
-     */
-    const Currency = {
-        currency: 'USD',
-        formatter: null,
-        format(value) {
-            value = parseFloat(value);
-            return Currency.getFormatter().format(value);
-        },
-        getFormatter() {
-            if (!Currency.formatter) {
-                Currency.formatter = new Intl.NumberFormat('en-US', {
-                    style: 'currency',
-                    currency: Currency.currency
-                });
-            }
-            return Currency.formatter;
-        },
-        setCurrencyFromAccount(account) {
-            if (account && account.Currency) {
-                Currency.setCurrency(account.Currency);
-            }
-        },
-        setCurrency(currency) {
-            if (currency) {
-                Currency.currency = currency;
-            }
-        }
-    }
-
-    /**
      * Data conversion helper to add RatePlanCharge and InvoiceItems to a RatePlan object
-     * @type {{addInvoiceItemsForRPC(*, *): void, addRPCsForRatePlan(*, *=): void}}
      */
     const DataConvert = {
         addRPCsForRatePlan(ratePlan, data) {
@@ -212,14 +209,12 @@
             if (id) {
                 let ratePlanRPCs = ratePlan.RatePlanCharges || [];
                 const rpcs = data.RatePlanCharge || [];
-                for (let i = 0; i < rpcs.length; i++) {
-                    const rpc = rpcs[i];
-                    const rpcRpId = rpc.RatePlanId || null;
+                rpcs.forEach(function (rpc) {
                     if (rpc.RatePlanId && rpc.RatePlanId === id) {
                         ratePlanRPCs.push(rpc);
                         DataConvert.addInvoiceItemsForRPC(rpc, data);
                     }
-                }
+                });
                 ratePlan.RatePlanCharges = ratePlanRPCs;
             }
         },
@@ -228,12 +223,11 @@
             if (id) {
                 let rpcInvoiceItems = rpc.InvoiceItems || [];
                 const invoiceItems = data.InvoiceItem || [];
-                for (let i = 0; i < invoiceItems.length; i++) {
-                    const ii = invoiceItems[i];
+                invoiceItems.forEach(function (ii) {
                     if (ii.RatePlanChargeId && ii.RatePlanChargeId === id) {
                         rpcInvoiceItems.push(ii);
                     }
-                }
+                });
                 rpc.InvoiceItems = rpcInvoiceItems;
             }
         },
@@ -241,7 +235,6 @@
 
     /**
      * Create an array of LineItems from a RatePlan
-     * @type {{setLineItemPricingFromRatePlanCharge(*, *): void, getBundledLineItemFromRatePlan(*): {Price: number, Period: string, Quantity: number, Name: string}, getBaseLineItem(): {Price: number, Period: string, Quantity: number, Name: string}, getLineItemsFromRatePlans(*): *[], getLineItemFromRatePlanCharge(*=): {Price: number, Period: string, Quantity: number, Name: string}, setLineItemPeriodFromRatePlanCharge(*, *): void}}
      */
     const LineItems = {
         getBaseLineItem() {
@@ -303,7 +296,6 @@
 
     /**
      * Create an array of RatePlans from the raw rate plan data provided by Zuora
-     * @type {{getRatePlansFromRawRatePlans(*): *[]}}
      */
     const RatePlans = {
         getRatePlansFromRawRatePlans(rawRatePlans) {
@@ -319,7 +311,6 @@
 
     /**
      * Output "stuff" in the html using the provided containerId and data
-     * @type {{lineItems(*=, *=): void, getTemplateId(*): string, compile(*=, *=): *, getTemplate(*=): string, update(*=, *): void, subscription(*=, *=): void, totals(*=, *=): void, render(*=, *=): void}}
      */
     const Render = {
         lineItems(containerId, lineItems) {
@@ -353,7 +344,7 @@
     //console.log(rawData);
     DataProvider.rawData = rawData;
     const account = DataProvider.getAccount();
-    Currency.setCurrencyFromAccount(account);
+    const currency = new Currency(account.Currency);
     const ratePlans = RatePlans.getRatePlansFromRawRatePlans(DataProvider.getRatePlans());
     //console.log(ratePlans);
     const lineItems = LineItems.getLineItemsFromRatePlans(ratePlans);
