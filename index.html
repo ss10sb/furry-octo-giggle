@@ -157,7 +157,7 @@
         constructor(currency = 'USD', locale = 'en-US') {
             currency = currency || 'USD';
             locale = locale || 'en-US';
-            self.formatter = new Intl.NumberFormat(locale, {
+            this.formatter = new Intl.NumberFormat(locale, {
                 style: 'currency',
                 currency: currency
             });
@@ -170,7 +170,65 @@
          */
         format(value) {
             value = parseFloat(value);
-            return self.formatter.format(value);
+            return this.formatter.format(value);
+        }
+    }
+
+    class Output {
+        /**
+         * Create a new Output renderer
+         * @param engine
+         */
+        constructor(engine) {
+            this.engine = engine;
+        }
+
+        /**
+         * Render invoice line items
+         * @param containerId
+         * @param lineItems
+         */
+        lineItems(containerId, lineItems) {
+            this.render(containerId, {lineItems: lineItems});
+        }
+
+        /**
+         * Render subscription
+         * @param containerId
+         * @param subscription
+         */
+        subscription(containerId, subscription) {
+            this.render(containerId, {subscription: subscription});
+        }
+
+        /**
+         * Render invoice totals
+         * @param containerId
+         * @param invoice
+         */
+        totals(containerId, invoice) {
+            this.render(containerId, {invoice: invoice});
+        }
+
+        render(containerId, data) {
+            const html = this.compile(this.getTemplate(this.getTemplateId(containerId)), data);
+            this.update(containerId, html);
+        }
+
+        update(containerId, html) {
+            document.getElementById(containerId).innerHTML = html;
+        }
+
+        compile(template, data) {
+            return this.engine.compile(template)(data);
+        }
+
+        getTemplateId(containerId) {
+            return containerId + '-template';
+        }
+
+        getTemplate(templateId) {
+            return document.getElementById(templateId).innerHTML;
         }
     }
 
@@ -309,37 +367,6 @@
         }
     }
 
-    /**
-     * Output "stuff" in the html using the provided containerId and data
-     */
-    const Render = {
-        lineItems(containerId, lineItems) {
-            Render.render(containerId, {lineItems: lineItems});
-        },
-        subscription(containerId, subscription) {
-            Render.render(containerId, {subscription: subscription});
-        },
-        totals(containerId, invoice) {
-            Render.render(containerId, {invoice: invoice});
-        },
-        render(containerId, data) {
-            const html = Render.compile(Render.getTemplate(Render.getTemplateId(containerId)), data);
-            Render.update(containerId, html);
-        },
-        update(containerId, html) {
-            document.getElementById(containerId).innerHTML = html;
-        },
-        compile(template, data) {
-            return ejs.compile(template)(data);
-        },
-        getTemplateId(containerId) {
-            return containerId + '-template';
-        },
-        getTemplate(templateId) {
-            return document.getElementById(templateId).innerHTML;
-        }
-    }
-
     //const rawData = {{- Data | to_json -}};
     //console.log(rawData);
     DataProvider.rawData = rawData;
@@ -349,9 +376,10 @@
     //console.log(ratePlans);
     const lineItems = LineItems.getLineItemsFromRatePlans(ratePlans);
     //console.log(lineItems);
-    Render.lineItems('line-items', lineItems);
-    Render.subscription('subscription', DataProvider.getSubscription());
-    Render.totals('totals', DataProvider.getInvoice());
+    const output = new Output(ejs);
+    output.lineItems('line-items', lineItems);
+    output.subscription('subscription', DataProvider.getSubscription());
+    output.totals('totals', DataProvider.getInvoice());
 
 </script>
 </body>
