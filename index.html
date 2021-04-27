@@ -147,6 +147,10 @@
 <script src="https://cdn.jsdelivr.net/npm/ejs@3.1.6/ejs.min.js"></script>
 <script src="data.js"></script>
 <script>
+    /**
+     * Retrieve object(s) from the Data object provided by Zuora
+     * @type {{getInvoice(): *, getAccount(): *, rawData: {}, getRatePlans(): *, getSubscription(): (*)}}
+     */
     const DataProvider = {
         rawData: {},
         getAccount() {
@@ -166,6 +170,10 @@
         }
     };
 
+    /**
+     * Handle currency formatting based on the Account's currency
+     * @type {{formatter: null, setCurrencyFromAccount(*=): void, format(*=): *, currency: string, getFormatter(): null, setCurrency(*=): void}}
+     */
     const Currency = {
         currency: 'USD',
         formatter: null,
@@ -194,6 +202,10 @@
         }
     }
 
+    /**
+     * Data conversion helper to add RatePlanCharge and InvoiceItems to a RatePlan object
+     * @type {{addInvoiceItemsForRPC(*, *): void, addRPCsForRatePlan(*, *=): void}}
+     */
     const DataConvert = {
         addRPCsForRatePlan(ratePlan, data) {
             const id = ratePlan.Id || null;
@@ -227,6 +239,10 @@
         },
     }
 
+    /**
+     * Create an array of LineItems from a RatePlan
+     * @type {{setLineItemPricingFromRatePlanCharge(*, *): void, getBundledLineItemFromRatePlan(*): {Price: number, Period: string, Quantity: number, Name: string}, getBaseLineItem(): {Price: number, Period: string, Quantity: number, Name: string}, getLineItemsFromRatePlans(*): *[], getLineItemFromRatePlanCharge(*=): {Price: number, Period: string, Quantity: number, Name: string}, setLineItemPeriodFromRatePlanCharge(*, *): void}}
+     */
     const LineItems = {
         getBaseLineItem() {
             return {
@@ -282,6 +298,26 @@
         }
     };
 
+    /**
+     * Create an array of RatePlans from the raw rate plan data provided by Zuora
+     * @type {{getRatePlansFromRawRatePlans(*): *[]}}
+     */
+    const RatePlans = {
+        getRatePlansFromRawRatePlans(rawRatePlans) {
+            let ratePlans = [];
+            for (let i = 0; i < rawRatePlans.length; i++) {
+                let ratePlan = rawRatePlans[i];
+                DataConvert.addRPCsForRatePlan(ratePlan, rawData);
+                ratePlans.push(ratePlan);
+            }
+            return ratePlans;
+        }
+    }
+
+    /**
+     * Output "stuff" in the html using the provided containerId and data
+     * @type {{lineItems(*=, *=): void, getTemplateId(*): string, compile(*=, *=): *, getTemplate(*=): string, update(*=, *): void, subscription(*=, *=): void, totals(*=, *=): void, render(*=, *=): void}}
+     */
     const Render = {
         lineItems(containerId, lineItems) {
             Render.render(containerId, {lineItems: lineItems});
@@ -315,15 +351,9 @@
     DataProvider.rawData = rawData;
     const account = DataProvider.getAccount();
     Currency.setCurrencyFromAccount(account);
-    const rawRatePlans = DataProvider.getRatePlans();
-    let ratePlans = [];
-    for (let i = 0; i < rawRatePlans.length; i++) {
-        let ratePlan = rawRatePlans[i];
-        DataConvert.addRPCsForRatePlan(ratePlan, rawData);
-        ratePlans.push(ratePlan);
-    }
+    const ratePlans = RatePlans.getRatePlansFromRawRatePlans(DataProvider.getRatePlans());
     //console.log(ratePlans);
-    lineItems = LineItems.getLineItemsFromRatePlans(ratePlans);
+    const lineItems = LineItems.getLineItemsFromRatePlans(ratePlans);
     //console.log(lineItems);
     Render.lineItems('line-items', lineItems);
     Render.subscription('subscription', DataProvider.getSubscription());
