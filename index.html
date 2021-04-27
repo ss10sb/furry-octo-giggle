@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <title>Integrate Invoice</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/normalize/7.0.0/normalize.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/paper-css/0.4.1/paper.css">
+    <style>
+        @page {
+            size: A4;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            font-family: sans-serif;
+            font-size: 10px;
+        }
+
+        table {
+            width: 100%;
+            margin-bottom: .5em;
+        }
+
+        th {
+            text-align: left;
+        }
+
+        td.table-number, th.table-number {
+            text-align: right;
+        }
+
+        .card {
+            border: 1px solid black;
+        }
+
+        .card * {
+            padding: 0.25em;
+        }
+
+        .card .card-header {
+            font-weight: bold;
+            font-size: 1.25em;
+            border-bottom: 1px solid black;
+            margin-bottom: .25em;
+        }
+
+        .bg-green {
+            background: #009A10;
+        }
+
+        .fg-white {
+            color: #fff;
+        }
+    </style>
+</head>
+
+<body class="A4">
+<section class="sheet padding-10mm">
+    <table>
+        <thead>
+        <tr>
+            <th>Subscription Number</th>
+            <th>SO Number</th>
+            <th>PO Number</th>
+        </tr>
+        </thead>
+        <tbody>
+        {% if Data.Subscription[0] %}
+        <tr>
+            <td>{{ Data.Subscription[0].SubscriptionNumber }}</td>
+            <td>{{ Data.Subscription[0].SONumber__c }}</td>
+            <td>{{ Data.Subscription[0].PONumber }}</td>
+        </tr>
+        {% endif %}
+        </tbody>
+    </table>
+    <div class="invoice">
+        <div class="card">
+            <div class="card-header bg-green fg-white">
+                Service Plan Summary
+            </div>
+
+            <table>
+                <thead>
+                <tr>
+                    <th>Service Name</th>
+                    <th>Service Period</th>
+                    <th class="table-number">Unit Price</th>
+                    <th class="table-number">Quantity</th>
+                    <th class="table-number">Total</th>
+                </tr>
+                </thead>
+                <tbody id="line-items">
+
+                </tbody>
+            </table>
+        </div>
+    </div>
+</section>
+<script id="line-items-template" type="text/template">
+    <% lineItems.forEach(function(lineItem) { %>
+    <tr>
+        <td><%= lineItem.Name %></td>
+        <td><%= lineItem.Period %></td>
+        <td class="table-number"><%= lineItem.Price %></td>
+        <td class="table-number"><%= lineItem.Quantity %></td>
+        <td class="table-number"><%= (lineItem.Price * lineItem.Quantity) %></td>
+    </tr>
+    <% }) %>
+</script>
+<script src="https://cdn.jsdelivr.net/npm/ejs@3.1.6/ejs.min.js"></script>
+<script src="data.js"></script>
+<script>
+    //const rawData = {{- Data | to_json -}};
+
+    const DataConvert = {
+        addRPCsForRatePlan(ratePlan, data) {
+            const id = ratePlan.Id || null;
+            if (id) {
+                let ratePlanRPCs = ratePlan.RatePlanCharges || [];
+                const rpcs = data.RatePlanCharge || [];
+                for (let i = 0; i < rpcs.length; i++) {
+                    const rpc = rpcs[i];
+                    const rpcRpId = rpc.RatePlanId || null;
+                    if (rpc.RatePlanId && rpc.RatePlanId === id) {
+                        ratePlanRPCs.push(rpc);
+                        DataConvert.addInvoiceItemsForRPC(rpc, data);
+                    }
+                }
+                ratePlan.RatePlanCharges = ratePlanRPCs;
+            }
+        },
+        addInvoiceItemsForRPC(rpc, data) {
+            const id = rpc.Id || null;
+            if (id) {
+                let rpcInvoiceItems = rpc.InvoiceItems || [];
+                const invoiceItems = data.InvoiceItem || [];
+                for (let i = 0; i < invoiceItems.length; i++) {
+                    const ii = invoiceItems[i];
+                    if (ii.RatePlanChargeId && ii.RatePlanChargeId === id) {
+                        rpcInvoiceItems.push(ii);
+                    }
+                }
+                rpc.InvoiceItems = rpcInvoiceItems;
+            }
+        },
+    }
+
+    const LineItems = {
+        getBaseLineItem() {
+            return {
+                Name: "",
+                Period: "",
+                Price: 0,
+                Quantity: 0
+            }
+        },
+        getBundledLineItemFromRatePlan(ratePlan) {
+            let lineItem = LineItems.getBaseLineItem();
+            lineItem.Name = ratePlan.Name;
+            ratePlan.RatePlanCharges.forEach(function (rpc) {
+                LineItems.setLineItemPricingFromRatePlanCharge(lineItem, rpc);
+                LineItems.setLineItemPeriodFromRatePlanCharge(lineItem, rpc);
+            });
+            return lineItem;
+        },
+        getLineItemFromRatePlanCharge(ratePlanCharge) {
+            let lineItem = LineItems.getBaseLineItem();
+            lineItem.Name = ratePlanCharge.Name;
+            LineItems.setLineItemPricingFromRatePlanCharge(lineItem, ratePlanCharge);
+            LineItems.setLineItemPeriodFromRatePlanCharge(lineItem, ratePlanCharge);
+            return lineItem;
+        },
+        getLineItemsFromRatePlans(ratePlans) {
+            let lineItems = [];
+            ratePlans.forEach(function (ratePlan) {
+                const name = ratePlan.Name;
+                if (name.startsWith('Bundle:')) {
+                    lineItems.push(LineItems.getBundledLineItemFromRatePlan(ratePlan));
+                } else {
+                    ratePlan.RatePlanCharges.forEach(function (rpc) {
+                        lineItems.push(LineItems.getLineItemFromRatePlanCharge(rpc));
+                    });
+                }
+            });
+            return lineItems;
+        },
+        setLineItemPeriodFromRatePlanCharge(lineItem, ratePlanCharge) {
+            if (!lineItem.Period) {
+                ratePlanCharge.InvoiceItems.forEach(function (invoiceItem) {
+                    lineItem.Period = `${invoiceItem.ServiceStartDate}-${invoiceItem.ServiceEndDate}`;
+                    return false;
+                })
+            }
+        },
+        setLineItemPricingFromRatePlanCharge(lineItem, ratePlanCharge) {
+            const rpcPrice = parseInt(ratePlanCharge.Price);
+            const rpcQuantity = parseInt(ratePlanCharge.Quantity);
+            lineItem.Price = lineItem.Price + rpcPrice;
+            lineItem.Quantity = rpcQuantity;
+        }
+    };
+
+    const Render = {
+        lineItems(containerId, lineItems) {
+            Render.render(containerId, {lineItems: lineItems});
+        },
+        render(containerId, data) {
+            const html = Render.compile(Render.getTemplate(Render.getTemplateId(containerId)), data);
+            Render.update(containerId, html);
+        },
+        update(containerId, html) {
+            document.getElementById(containerId).innerHTML = html;
+        },
+        compile(template, data) {
+            return ejs.compile(template)(data);
+        },
+        getTemplateId(containerId) {
+            return containerId + '-template';
+        },
+        getTemplate(templateId) {
+            return document.getElementById(templateId).innerHTML;
+        }
+    }
+
+    const rawRatePlans = rawData.RatePlan || [];
+    let ratePlans = [];
+    for (let i = 0; i < rawRatePlans.length; i++) {
+        let ratePlan = rawRatePlans[i];
+        DataConvert.addRPCsForRatePlan(ratePlan, rawData);
+        ratePlans.push(ratePlan);
+    }
+    console.log(ratePlans);
+    lineItems = LineItems.getLineItemsFromRatePlans(ratePlans);
+    console.log(lineItems);
+    Render.lineItems('line-items', lineItems);
+</script>
+</body>
+
+</html>
