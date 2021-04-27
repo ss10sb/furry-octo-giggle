@@ -24,14 +24,33 @@
         table {
             width: 100%;
             margin-bottom: .5em;
+            border-collapse: collapse;
         }
 
-        th {
+        table td, table th {
+            padding-top: 0.5em !important;
+            padding-bottom: 0.5em !important;
+        }
+
+        table th {
             text-align: left;
         }
 
-        td.table-number, th.table-number {
+        .total-label {
             text-align: right;
+            font-weight: bold;
+        }
+
+        table td.table-number, table th.table-number {
+            text-align: right;
+        }
+
+        table thead {
+            border-bottom: 1px solid black;
+        }
+
+        table tfoot {
+            border-top: 1px solid black;
         }
 
         .card {
@@ -69,15 +88,7 @@
             <th>PO Number</th>
         </tr>
         </thead>
-        <tbody>
-        {% if Data.Subscription[0] %}
-        <tr>
-            <td>{{ Data.Subscription[0].SubscriptionNumber }}</td>
-            <td>{{ Data.Subscription[0].SONumber__c }}</td>
-            <td>{{ Data.Subscription[0].PONumber }}</td>
-        </tr>
-        {% endif %}
-        </tbody>
+        <tbody id="subscription"></tbody>
     </table>
     <div class="invoice">
         <div class="card">
@@ -95,9 +106,8 @@
                     <th class="table-number">Total</th>
                 </tr>
                 </thead>
-                <tbody id="line-items">
-
-                </tbody>
+                <tbody id="line-items"></tbody>
+                <tfoot id="totals"></tfoot>
             </table>
         </div>
     </div>
@@ -107,16 +117,82 @@
     <tr>
         <td><%= lineItem.Name %></td>
         <td><%= lineItem.Period %></td>
-        <td class="table-number"><%= lineItem.Price %></td>
+        <td class="table-number"><%= Currency.format(lineItem.Price) %></td>
         <td class="table-number"><%= lineItem.Quantity %></td>
-        <td class="table-number"><%= (lineItem.Price * lineItem.Quantity) %></td>
+        <td class="table-number"><%= Currency.format(lineItem.Price * lineItem.Quantity) %></td>
     </tr>
     <% }) %>
+</script>
+<script id="subscription-template" type="text/template">
+    <tr>
+        <td><%= subscription.Name %></td>
+        <td><%= subscription.SONumber__c %></td>
+        <td><%= subscription.PONumber__c %></td>
+    </tr>
+</script>
+<script id="totals-template" type="text/template">
+    <tr>
+        <td colspan="4" class="total-label">Amount</td>
+        <td class="table-number"><%= Currency.format(invoice.AmountWithoutTax) %></td>
+    </tr>
+    <tr>
+        <td colspan="4" class="total-label">Tax</td>
+        <td class="table-number"><%= Currency.format(invoice.TaxAmount) %></td>
+    </tr>
+    <tr>
+        <td colspan="4" class="total-label">Total</td>
+        <td class="table-number"><%= Currency.format(invoice.Amount) %></td>
+    </tr>
 </script>
 <script src="https://cdn.jsdelivr.net/npm/ejs@3.1.6/ejs.min.js"></script>
 <script src="data.js"></script>
 <script>
-    //const rawData = {{- Data | to_json -}};
+    const DataProvider = {
+        rawData: {},
+        getAccount() {
+            return DataProvider.rawData.Account || {};
+        },
+        getInvoice() {
+            return DataProvider.rawData.Invoice || {};
+        },
+        getRatePlans() {
+            return DataProvider.rawData.RatePlan || [];
+        },
+        getSubscription() {
+            if (DataProvider.rawData.Subscription) {
+                return DataProvider.rawData.Subscription[0];
+            }
+            return {};
+        }
+    };
+
+    const Currency = {
+        currency: 'USD',
+        formatter: null,
+        format(value) {
+            value = parseFloat(value);
+            return Currency.getFormatter().format(value);
+        },
+        getFormatter() {
+            if (!Currency.formatter) {
+                Currency.formatter = new Intl.NumberFormat('en-US', {
+                    style: 'currency',
+                    currency: Currency.currency
+                });
+            }
+            return Currency.formatter;
+        },
+        setCurrencyFromAccount(account) {
+            if (account && account.Currency) {
+                Currency.setCurrency(account.Currency);
+            }
+        },
+        setCurrency(currency) {
+            if (currency) {
+                Currency.currency = currency;
+            }
+        }
+    }
 
     const DataConvert = {
         addRPCsForRatePlan(ratePlan, data) {
@@ -199,7 +275,7 @@
             }
         },
         setLineItemPricingFromRatePlanCharge(lineItem, ratePlanCharge) {
-            const rpcPrice = parseInt(ratePlanCharge.Price);
+            const rpcPrice = parseFloat(ratePlanCharge.Price);
             const rpcQuantity = parseInt(ratePlanCharge.Quantity);
             lineItem.Price = lineItem.Price + rpcPrice;
             lineItem.Quantity = rpcQuantity;
@@ -209,6 +285,12 @@
     const Render = {
         lineItems(containerId, lineItems) {
             Render.render(containerId, {lineItems: lineItems});
+        },
+        subscription(containerId, subscription) {
+            Render.render(containerId, {subscription: subscription});
+        },
+        totals(containerId, invoice) {
+            Render.render(containerId, {invoice: invoice});
         },
         render(containerId, data) {
             const html = Render.compile(Render.getTemplate(Render.getTemplateId(containerId)), data);
@@ -228,17 +310,25 @@
         }
     }
 
-    const rawRatePlans = rawData.RatePlan || [];
+    //const rawData = {{- Data | to_json -}};
+    //console.log(rawData);
+    DataProvider.rawData = rawData;
+    const account = DataProvider.getAccount();
+    Currency.setCurrencyFromAccount(account);
+    const rawRatePlans = DataProvider.getRatePlans();
     let ratePlans = [];
     for (let i = 0; i < rawRatePlans.length; i++) {
         let ratePlan = rawRatePlans[i];
         DataConvert.addRPCsForRatePlan(ratePlan, rawData);
         ratePlans.push(ratePlan);
     }
-    console.log(ratePlans);
+    //console.log(ratePlans);
     lineItems = LineItems.getLineItemsFromRatePlans(ratePlans);
-    console.log(lineItems);
+    //console.log(lineItems);
     Render.lineItems('line-items', lineItems);
+    Render.subscription('subscription', DataProvider.getSubscription());
+    Render.totals('totals', DataProvider.getInvoice());
+
 </script>
 </body>
 
