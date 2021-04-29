@@ -5,10 +5,13 @@
     <meta charset="utf-8">
     <title>Integrate Invoice</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/normalize/7.0.0/normalize.min.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/paper-css/0.4.1/paper.min.css">
     <style>
         @page {
-            size: A4;
+            size: auto;
+            margin-left: 0.5in;
+            margin-right: 0.5in;
+            margin-top: 175px;
+            margin-bottom: 150px;
         }
 
         * {
@@ -19,6 +22,9 @@
         body {
             font-family: Arial, sans-serif;
             font-size: 10px;
+            width: 100%;
+            margin: 0;
+            padding: 0;
         }
 
         .d-none {
@@ -30,6 +36,30 @@
             width: 1.1em;
             vertical-align: bottom;
             stroke: black;
+        }
+
+        @media print {
+            table {
+                page-break-after: auto;
+            }
+
+            tr {
+                page-break-inside: avoid;
+                page-break-after: auto;
+            }
+
+            td {
+                page-break-inside: avoid;
+                page-break-after: auto;
+            }
+
+            thead {
+                display: table-header-group;
+            }
+
+            tfoot {
+                display: table-footer-group;
+            }
         }
 
         table {
@@ -67,6 +97,15 @@
             border-top: 1px solid black;
         }
 
+        .card {
+            width: 100%;
+        }
+
+        .card-header {
+            font-weight: bold;
+            font-size: 1.25em;
+        }
+
         .bg-lightgrey {
             background: #e3e3e3;
         }
@@ -79,10 +118,6 @@
             color: #fff;
         }
 
-        .border-bottom {
-            border-bottom: 1px solid black;
-        }
-
         .margin-bottom-1em {
             margin-bottom: 1em;
         }
@@ -90,6 +125,11 @@
         .padding-y-50em {
             padding-top: 0.50em;
             padding-bottom: 0.50em;
+        }
+
+        .padding-x-25em {
+            padding-left: 0.25em;
+            padding-right: 0.25em;
         }
 
         .flex-container {
@@ -105,10 +145,6 @@
             align-items: flex-start;
         }
 
-        .text-center {
-            text-align: center;
-        }
-
         .contact div {
             padding-top: .25em;
             padding-bottom: .25em;
@@ -117,11 +153,16 @@
     </style>
 </head>
 
-<body class="A4">
-<section class="sheet padding-10mm">
-    <div class="flex-container flex-justify-space-between flex-align-start margin-bottom-1em">
-        <div id="bill-to" class="contact"></div>
-        <div id="sold-to" class="contact"></div>
+<body>
+<section class="page">
+    <div class="card">
+        <div class="card-header bg-green fg-white padding-x-25em padding-y-50em">
+            Contact Information
+        </div>
+        <div class="flex-container flex-justify-space-between margin-bottom-1em">
+            <div id="bill-to" class="contact"></div>
+            <div id="sold-to" class="contact"></div>
+        </div>
     </div>
     <div class="invoice" id="subscriptions-line-items"></div>
 </section>
@@ -145,16 +186,16 @@
     <% } %>
 </script>
 <script id="bill-to-template" type="text/template">
-    <div><strong>Bill To</strong></div>
+    <h3>Bill To</h3>
     <div><strong><%= account.Name %></strong></div>
     <% if (account.BillToLegalEntity__c) { %>
     <div><strong><%= account.BillToLegalEntity__c %></strong></div>
     <% } %>
     <div id="bill-to-contact"></div>
-    <div>Invoice: <%= invoice.InvoiceNumber %></div>
+    <div>Currency: <%= account.Currency %></div>
 </script>
 <script id="sold-to-template" type="text-template">
-    <div><strong>Sold To</strong></div>
+    <h3>Sold To</h3>
     <div><strong><%= account.Name %></strong></div>
     <% if (account.SoldToLegalEntity__c) { %>
     <div><strong><%= account.SoldToLegalEntity__c %></strong></div>
@@ -164,7 +205,7 @@
 <script id="subscriptions-line-items-template" type="text/template">
     <table>
         <thead>
-        <tr class="bg-green fg-white">
+        <tr class="card-header bg-green fg-white">
             <th colspan="5">Service Plan Summary</th>
         </tr>
         <tr class="inverse-header">
@@ -186,47 +227,30 @@
                 </div>
             </td>
         </tr>
-        <tr>
-            <td colspan="5">
-                <div class="flex-container flex-justify-space-between flex-align-start">
-                    <div>
-                        <div class="padding-y-50em"><strong>Subscription</strong></div>
-                        <div class="padding-y-50em"><%= subscription.Name %></div>
-                    </div>
-                    <div>
-                        <div class="padding-y-50em"><strong>SO Number</strong></div>
-                        <div class="padding-y-50em"><%= subscription.SONumber %></div>
-                    </div>
-                    <div>
-                        <div class="padding-y-50em"><strong>PO Number</strong></div>
-                        <div class="padding-y-50em"><%= subscription.PONumber %></div>
-                    </div>
-                </div>
-            </td>
-        </tr>
-        <tr>
-            <th>Subscription</th>
-            <th>SO Number</th>
-            <th>PO Number</th>
-            <th colspan="2">&nbsp;</th>
-        </tr>
-        <tr>
-            <td><%= subscription.Name %></td>
-            <td><%= subscription.SONumber %></td>
-            <td><%= subscription.PONumber %></td>
-            <td colspan="2">&nbsp;</td>
-        </tr>
         </tbody>
         <tbody class="line-items">
-        <% subscription.LineItems.forEach(function(lineItem) { %>
+        <% subscription.LineItems.RatePlanCharges.forEach(function(lineItem) { %>
         <tr>
             <td><%= lineItem.Name %></td>
             <td><%= lineItem.Period %></td>
             <td class="table-number"><%= currency.format(lineItem.Price) %></td>
             <td class="table-number"><%= lineItem.Quantity %></td>
-            <td class="table-number"><%= currency.format(lineItem.Price * lineItem.Quantity) %></td>
+            <td class="table-number"><%= currency.format(lineItem.Total) %></td>
         </tr>
         <% }) %>
+        <% subscription.LineItems.Usages.forEach(function(lineItem) { %>
+        <tr>
+            <td><%= lineItem.Name %></td>
+            <td><%= lineItem.Period %></td>
+            <td class="table-number">--</td>
+            <td class="table-number"><%= lineItem.Quantity %></td>
+            <td class="table-number"><%= currency.format(lineItem.Total) %></td>
+        </tr>
+        <% }) %>
+        <tr>
+            <td colspan="4" class="total-label">Subtotal</td>
+            <td class="table-number"><%= currency.format(subscription.Total) %></td>
+        </tr>
         </tbody>
         <% }) %>
         <tfoot id="totals"></tfoot>
@@ -258,8 +282,10 @@
     </symbol>
 </svg>
 <script src="https://cdn.jsdelivr.net/npm/ejs@3.1.6/ejs.min.js"></script>
-<script src="data.js"></script>
+<script src="data.complex.js"></script>
 <script>
+
+    const DEBUG = true;
 
     class Currency {
         /**
@@ -287,6 +313,93 @@
         }
     }
 
+    class Subscription {
+        /**
+         * Creates a subscription object which contains
+         * the RatePlanCharges and Usages
+         * @param {object} rawSubscription
+         */
+        constructor(rawSubscription) {
+            this.Name = rawSubscription.Name;
+            this.SONumber = rawSubscription.SONumber__c;
+            this.PONumber = rawSubscription.PONumber__c;
+            this.LineItems = {
+                RatePlanCharges: [],
+                Usages: []
+            };
+            this.hasBundle = false;
+            if (DEBUG) {
+                this.rawSubscription = rawSubscription;
+            }
+        }
+
+        /**
+         * Get subscription subtotal as property (subscription.Total)
+         */
+        get Total() {
+            let sub = 0;
+            this.LineItems.RatePlanCharges.forEach(function (rpc) {
+                sub += rpc.Total;
+            });
+            this.LineItems.Usages.forEach(function (u) {
+                sub += u.Total;
+            });
+            return sub;
+        }
+    }
+
+    class LineItem {
+        /**
+         * Base class for RatePlanCharge and Usage line items
+         * @param {string} name
+         */
+        constructor(name) {
+            this.Name = name;
+            this.Period = "";
+            this.Price = 0;
+            this.Quantity = 0;
+        }
+
+        incrementPrice(price) {
+            this.Price += parseFloat(price);
+        }
+
+        incrementQuantity(quantity) {
+            this.Quantity += parseInt(quantity);
+        }
+
+        /**
+         * Get line item total as property (lineItem.Total)
+         */
+        get Total() {
+            return this.Price * this.Quantity;
+        }
+    }
+
+    class RatePlanCharge extends LineItem {
+
+    }
+
+    class Usage extends LineItem {
+        /**
+         * Overrides for line item usage
+         * @param {string} name
+         */
+        constructor(name) {
+            super(name);
+            this.ShortSourceId = null;
+            this.total = 0;
+        }
+
+        get Total() {
+            return this.total;
+        }
+
+        incrementTotal(total) {
+            this.total += parseFloat(total);
+        }
+    }
+
     class Output {
         /**
          * Create a new Output renderer
@@ -309,15 +422,6 @@
         }
 
         /**
-         * Render invoice line items
-         * @param {string} containerId
-         * @param {array} lineItems
-         */
-        lineItems(containerId, lineItems) {
-            this.render(containerId, {lineItems: lineItems});
-        }
-
-        /**
          * Render sold to contact
          * @param {string} containerId
          * @param {object} soldTo
@@ -327,24 +431,6 @@
         soldToContact(containerId, soldTo, account, invoice) {
             this.render(containerId, {contact: soldTo, account: account, invoice: invoice});
             this.renderContact(this.getContactId(containerId), {contact: soldTo});
-        }
-
-        /**
-         * Render subscription
-         * @param {string} containerId
-         * @param {object} subscription
-         */
-        subscription(containerId, subscription) {
-            this.render(containerId, {subscription: subscription});
-        }
-
-        /**
-         * Render subscriptions - same as above but iterates over the array
-         * @param {string} containerId
-         * @param {array} subscriptions
-         */
-        subscriptions(containerId, subscriptions) {
-            this.render(containerId, {subscriptions: subscriptions});
         }
 
         /**
@@ -477,84 +563,211 @@
                 rpc.InvoiceItems = rpcInvoiceItems;
             }
         },
+        addUsagesForSubscription(subscription, data) {
+            const id = subscription.Id || null;
+            if (id) {
+                let usages = subscription.Usages || [];
+                const rawUsages = data.Usage || [];
+                rawUsages.forEach(function (usage) {
+                    if (usage.SubscriptionId && usage.SubscriptionId === id) {
+                        usages.push(usage);
+                    }
+                })
+                subscription.Usages = usages;
+            }
+        }
     }
 
     /**
-     * Create an array of LineItems from a Subscription or a RatePlan
+     * Iterate the raw subscriptions (from DataConvert), create a subscription object from the raw subscriptions
+     * and add the rate plan charge and usage line items for the subscription
      */
-    const LineItems = {
-        getBaseSubscription(subscription) {
-            return {
-                Name: subscription.Name,
-                SONumber: subscription.SONumber__c,
-                PONumber: subscription.PONumber__c,
-                LineItems: []
-            }
+    const LineItemsFromSubscriptions = {
+        handlers: [],
+        getNewSubscription(rawSubscription) {
+            return new Subscription(rawSubscription);
         },
-        getBaseLineItem() {
-            return {
-                Name: "",
-                Period: "",
-                Price: 0,
-                Quantity: 0
-            }
-        },
-        getBundledLineItemFromRatePlan(ratePlan) {
-            let lineItem = LineItems.getBaseLineItem();
-            lineItem.Name = ratePlan.Name;
-            ratePlan.RatePlanCharges.forEach(function (rpc) {
-                LineItems.setLineItemPricingFromRatePlanCharge(lineItem, rpc);
-                LineItems.setLineItemPeriodFromRatePlanCharge(lineItem, rpc);
+        getSubscriptions(rawSubscriptions) {
+            let subscriptions = [];
+            rawSubscriptions.forEach(function (rawSubscription) {
+                let sub = LineItemsFromSubscriptions.getNewSubscription(rawSubscription);
+                LineItemsFromSubscriptions.handlers.forEach(function (handler) {
+                    handler.handle(sub, rawSubscription);
+                });
+                subscriptions.push(sub);
             });
-            return lineItem;
+            return subscriptions;
+        }
+    }
+
+    const RatePlanChargeHandler = {
+        handle(subscription, rawSubscription) {
+            RatePlanChargeHandler.iterateRatePlans(subscription, rawSubscription.RatePlans || []);
         },
-        getLineItemFromRatePlanCharge(ratePlanCharge) {
-            let lineItem = LineItems.getBaseLineItem();
-            lineItem.Name = ratePlanCharge.Name;
-            LineItems.setLineItemPricingFromRatePlanCharge(lineItem, ratePlanCharge);
-            LineItems.setLineItemPeriodFromRatePlanCharge(lineItem, ratePlanCharge);
-            return lineItem;
+        iterateRatePlans(sub, ratePlans) {
+            if (RatePlanChargeHandler.shouldBundle(ratePlans)) {
+                sub.hasBundle = true;
+            }
+            RatePlanChargeHandler.ratePlans(sub, ratePlans);
         },
-        getLineItemsFromRatePlans(ratePlans) {
-            let lineItems = [];
+        ratePlans(sub, ratePlans) {
             ratePlans.forEach(function (ratePlan) {
-                if (LineItems.isBundle(ratePlan)) {
-                    lineItems.push(LineItems.getBundledLineItemFromRatePlan(ratePlan));
+                const ratePlanCharges = ratePlan.RatePlanCharges || [];
+                if (RatePlanChargeHandler.isBundle(ratePlan)) {
+                    RatePlanChargeHandler.bundledFromRatePlan(sub, ratePlan);
                 } else {
-                    ratePlan.RatePlanCharges.forEach(function (rpc) {
-                        lineItems.push(LineItems.getLineItemFromRatePlanCharge(rpc));
+                    ratePlanCharges.forEach(function (rpc) {
+                        RatePlanChargeHandler.fromRatePlanCharge(sub, rpc);
                     });
                 }
             });
-            return lineItems;
         },
-        getSubscriptions(subscriptions) {
-            let subs = [];
-            subscriptions.forEach(function (subscription) {
-                let sub = LineItems.getBaseSubscription(subscription);
-                sub.LineItems = LineItems.getLineItemsFromRatePlans(subscription.RatePlans || []);
-                subs.push(sub);
-            });
-            return subs;
-        },
-        isBundle(ratePlan) {
-            return ratePlan.Bundle__c === 'Yes';
-        },
-        setLineItemPeriodFromRatePlanCharge(lineItem, ratePlanCharge) {
-            if (!lineItem.Period) {
-                ratePlanCharge.InvoiceItems.forEach(function (invoiceItem) {
-                    lineItem.Period = `${invoiceItem.ServiceStartDate}-${invoiceItem.ServiceEndDate}`;
-                    return false;
-                })
+        bundledFromRatePlan(sub, ratePlan) {
+            const ratePlanCharges = ratePlan.RatePlanCharges || [];
+            if (RatePlanChargeHandler.bundleShouldAddRatePlanCharges(ratePlanCharges)) {
+                let item = new RatePlanCharge(ratePlan.Name);
+                ratePlanCharges.forEach(function (rpc) {
+                    RatePlanChargeHandler.setPriceAndQuantity(sub, item, rpc);
+                    RatePlanChargeHandler.setPeriod(sub, item, rpc);
+                });
+                sub.LineItems.RatePlanCharges.push(item);
             }
         },
-        setLineItemPricingFromRatePlanCharge(lineItem, ratePlanCharge) {
-            const rpcPrice = parseFloat(ratePlanCharge.Price);
-            const rpcQuantity = parseInt(ratePlanCharge.Quantity);
-            lineItem.Price = lineItem.Price + rpcPrice;
-            lineItem.Quantity = rpcQuantity;
+        fromRatePlanCharge(sub, ratePlanCharge) {
+            if (RatePlanChargeHandler.shouldAddRatePlanCharge(ratePlanCharge)) {
+                let item = new RatePlanCharge(ratePlanCharge.Name);
+                RatePlanChargeHandler.setPeriod(sub, item, ratePlanCharge);
+                RatePlanChargeHandler.setPriceAndQuantity(sub, item, ratePlanCharge);
+                sub.LineItems.RatePlanCharges.push(item);
+            }
+        },
+        setPeriod(sub, item, ratePlanCharge) {
+            if (!item.Period) {
+                ratePlanCharge.InvoiceItems.forEach(function (invoiceItem) {
+                    item.Period = `${invoiceItem.ServiceStartDate}-${invoiceItem.ServiceEndDate}`;
+                    return false;
+                });
+            }
+        },
+        setPriceAndQuantity(sub, item, ratePlanCharge) {
+            let price = 0;
+            let quantity = 0;
+            ratePlanCharge.InvoiceItems.forEach(function (ii) {
+                price = price + parseFloat(ii.UnitPrice);
+                quantity = quantity + parseInt(ii.Quantity);
+            });
+            item.incrementPrice(price);
+            item.Quantity = quantity;
+        },
+        bundleShouldAddRatePlanCharges(ratePlanCharges) {
+            let shouldAdd = true;
+            ratePlanCharges.forEach(function (ratePlanCharge) {
+                if (RatePlanChargeHandler.isRatePlanChargeUsage(ratePlanCharge)) {
+                    shouldAdd = false;
+                    return false;
+                }
+            });
+            return shouldAdd;
+        },
+        shouldAddRatePlanCharge(ratePlanCharge) {
+            return !RatePlanChargeHandler.isRatePlanChargeUsage(ratePlanCharge);
+        },
+        shouldBundle(ratePlans) {
+            let has = false;
+            ratePlans.forEach(function (ratePlan) {
+                if (RatePlanChargeHandler.isBundle(ratePlan)) {
+                    has = true;
+                    return false;
+                }
+            });
+            return has;
+        },
+        isBundle(ratePlan) {
+            return RatePlanChargeHandler.isBundleByBundleCustomField(ratePlan) || RatePlanChargeHandler.isBundleByRatePlanName(ratePlan);
+        },
+        isBundleByBundleCustomField(ratePlan) {
+            return ratePlan.Bundle__c === 'Yes';
+        },
+        isBundleByRatePlanName(ratePlan) {
+            const name = ratePlan.Name || '';
+            return name.startsWith('Bundle:');
+        },
+        isRatePlanChargeUsage(ratePlanCharge) {
+            return ratePlanCharge.ChargeType && ratePlanCharge.ChargeType === 'Usage';
+        },
+    }
+
+    const UsageHandler = {
+        handle(subscription, rawSubscription) {
+            UsageHandler.iterateUsages(subscription, rawSubscription.Usages || []);
+        },
+        iterateUsages(sub, usages) {
+            UsageHandler.bundle(sub, usages);
+        },
+        bundle(sub, usages) {
+            usages = UsageHandler.combineUsages(sub, usages);
+            log("Usages", usages);
+            for (let bundledUsages of usages.values()) {
+                let item = new Usage('Bundled Usage');
+                bundledUsages.forEach(function (usage) {
+                    item.Name = usage.Alias__c;
+                    UsageHandler.setShortSourceId(sub, item, usage);
+                    UsageHandler.setPeriod(sub, item, usage);
+                    UsageHandler.setPriceQuantityAndTotal(sub, item, usage);
+                });
+                sub.LineItems.Usages.push(item);
+            }
+        },
+        setShortSourceId(sub, item, usage) {
+            if (!item.ShortSourceId) {
+                item.ShortSourceId = usage.SourceShortID__c;
+            }
+        },
+        setPeriod(sub, item, usage) {
+            if (!item.Period) {
+                item.Period = usage.ServicePeriod__c;
+            }
+        },
+        setPriceQuantityAndTotal(sub, item, usage) {
+            if (UsageHandler.isBaseProductUOM(usage)) {
+                item.incrementQuantity(UsageHandler.getMultiplier(usage) * usage.MarketplaceQuantity__c);
+            }
+            item.incrementTotal(UsageHandler.getMultiplier(usage) * usage.Quantity);
+        },
+        combineUsages(sub, usages) {
+            let bundled = new Map();
+            usages.forEach(function (usage) {
+                let id = usage.SourceShortID__c || null;
+                if (id) {
+                    if (!bundled.has(id)) {
+                        bundled.set(id, []);
+                    }
+                    bundled.get(id).push(usage);
+                }
+            });
+            return bundled;
+        },
+        getMultiplier(usage) {
+            const uom = usage.UOM || '';
+            const negatives = ['Refunded'];
+            for (let i = 0; i < negatives.length; i++) {
+                if (uom.endsWith(negatives[i])) {
+                    return -1;
+                }
+            }
+            return 1;
+        },
+        isBaseProductUOM(usage) {
+            const uom = usage.UOM || '';
+            const allowedUOMs = ['Marketplace'];
+            for (let i = 0; i < allowedUOMs.length; i++) {
+                if (uom.startsWith(allowedUOMs[i])) {
+                    return true;
+                }
+            }
+            return false;
         }
-    };
+    }
 
     /**
      * Create subscriptions array from raw data
@@ -564,21 +777,29 @@
             let subscriptions = [];
             rawSubscriptions.forEach(function (subscription) {
                 DataConvert.addRatePlansForSubscription(subscription, rawData);
+                DataConvert.addUsagesForSubscription(subscription, rawData);
                 subscriptions.push(subscription);
             })
             return subscriptions;
         }
     }
 
+    function log(name, data) {
+        if (DEBUG) {
+            console.log(name, data);
+        }
+    }
+
     //const rawData = {{- Data | to_json -}};
-    //console.log(rawData);
+    log('Raw data', rawData);
     DataProvider.rawData = rawData;
     const account = DataProvider.getAccount();
     const currency = new Currency(account.Currency);
     const subscriptions = Subscriptions.getSubscriptionsFromRawSubscriptions(DataProvider.getSubscriptions());
-    //console.log(subscriptions);
-    const subsLineItems = LineItems.getSubscriptions(subscriptions);
-    //console.log(subsLineItems);
+    log('Subscriptions pre-line items', subscriptions);
+    LineItemsFromSubscriptions.handlers.push(RatePlanChargeHandler, UsageHandler);
+    const subsLineItems = LineItemsFromSubscriptions.getSubscriptions(subscriptions);
+    log('Subscriptions w line items', subsLineItems);
     const invoice = DataProvider.getInvoice();
     const output = new Output(ejs);
     output.billToContact('bill-to', DataProvider.getBillToContact(), account, invoice);

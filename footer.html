@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <title>Integrate Invoice</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/normalize/7.0.0/normalize.min.css">
+    <style>
+        @page {
+            size: auto;
+            margin-left: 0.5in;
+            margin-right: 0.5in;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            font-family: Arial, sans-serif;
+            font-size: 10px;
+            width: 100%;
+            margin: 0;
+            padding: 0;
+            line-height: 1.25em;
+        }
+
+        .text-red {
+            color: red;
+        }
+
+        .label {
+            font-weight: bold;
+        }
+
+        .row {
+            display: flex;
+            flex-direction: row;
+            flex-wrap: wrap;
+            width: 100%;
+        }
+
+        .column {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+        }
+
+        .column-2 {
+            flex: 2;
+        }
+
+        .margin-bottom-50em {
+            margin-bottom: 0.5em;
+        }
+
+        .flex-justify-space-between {
+            justify-content: space-between;
+        }
+
+        .border-bottom {
+            border-bottom: 1px solid black;
+        }
+
+    </style>
+</head>
+<body>
+<section>
+    <div class="text-red margin-bottom-50em">
+        Payments can be remitted using the methods below. When remitting payment, please provide the document number(s)
+        and/or the customer ID on your remittance advice so your payment can be applied appropriately.
+    </div>
+    <div class="row flex-justify-space-between">
+        <div class="column">
+            <div class="label border-bottom margin-bottom-50em">Send Wire/ACH Transfers to:</div>
+            Integrate.com,Inc.<br/>
+            Acct No.: 3300981379<br/>
+            Routing No.: 121140399<br/>
+            SWIFT: SVBKUS6S<br/>
+            <br/>
+            Silicon Valley Bank<br/>
+            3003 Tasman Drive<br/>
+            SantaClara, CA 95054<br/>
+        </div>
+        <div class="column-2">
+            <div class="label border-bottom margin-bottom-50em">Remit Checks to:</div>
+            <div class="row flex-justify-space-between">
+                <div class="column">
+                    <div class="label">Regular Mail:</div>
+                    Integrate.com,Inc.<br/>
+                    Dept. LA 24143<br/>
+                    Pasadena, CA 91185-4143<br/>
+                </div>
+                <div class="column">
+                    <div class="label">Overnight Delivery:</div>
+                    Integrate.com, Inc.<br/>
+                    Dept. LA 24143<br/>
+                    14005 Live Oak Avenue<br/>
+                    Irwindale, CA 91706-1300<br/>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+</body>
+</html>
