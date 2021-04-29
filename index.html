@@ -285,7 +285,7 @@
 <script src="data.complex.js"></script>
 <script>
 
-    const DEBUG = true;
+    const DEBUG = false;
 
     class Currency {
         /**
@@ -316,7 +316,7 @@
     class Subscription {
         /**
          * Creates a subscription object which contains
-         * the RatePlanCharges and Usages
+         * the RatePlanCharges and Usages in a LineItems object
          * @param {object} rawSubscription
          */
         constructor(rawSubscription) {
@@ -348,9 +348,11 @@
         }
     }
 
+    /**
+     * Base class for the LineItem objects (RatePlanCharge and Usage)
+     */
     class LineItem {
         /**
-         * Base class for RatePlanCharge and Usage line items
          * @param {string} name
          */
         constructor(name) {
@@ -360,10 +362,16 @@
             this.Quantity = 0;
         }
 
+        /**
+         * Adds price to the existing price
+         */
         incrementPrice(price) {
             this.Price += parseFloat(price);
         }
 
+        /**
+         * Adds quantity to the existing quantity
+         */
         incrementQuantity(quantity) {
             this.Quantity += parseInt(quantity);
         }
@@ -376,30 +384,42 @@
         }
     }
 
+    /**
+     * Override LineItem for the RatePlanCharge LineItem
+     */
     class RatePlanCharge extends LineItem {
 
     }
 
+    /**
+     * Override LineItem for the Usage LineItem
+     */
     class Usage extends LineItem {
-        /**
-         * Overrides for line item usage
-         * @param {string} name
-         */
+
         constructor(name) {
             super(name);
             this.ShortSourceId = null;
             this.total = 0;
         }
 
+        /**
+         * Get line item total as property (usage.Total)
+         */
         get Total() {
             return this.total;
         }
 
+        /**
+         * Adds total to the existing total
+         */
         incrementTotal(total) {
             this.total += parseFloat(total);
         }
     }
 
+    /**
+     * Generates HTML from templates using the provided engine (EJS)
+     */
     class Output {
         /**
          * Create a new Output renderer
@@ -451,36 +471,77 @@
             this.render(containerId, {invoice: invoice});
         }
 
+        /**
+         * Renders the contact (called from billToContact and soldToContact)
+         * @param {string} containerId
+         * @param {object} data
+         */
         renderContact(containerId, data) {
             const html = this.compile(this.getTemplate(this.getContactTemplateId(containerId)), data);
             this.update(containerId, html);
         }
 
+        /**
+         * Compiles HTML using the template and inserts the HTML into the containerId
+         * @param {string} containerId
+         * @param {object} data
+         */
         render(containerId, data) {
             const html = this.compile(this.getTemplate(this.getTemplateId(containerId)), data);
             this.update(containerId, html);
         }
 
+        /**
+         * Sets the inner HTML of the container to the html
+         * @param {string} containerId
+         * @param {string} html
+         */
         update(containerId, html) {
             document.getElementById(containerId).innerHTML = html;
         }
 
+        /**
+         * Compiles the HTML template using the provided data
+         * @param {string} template
+         * @param {object} data
+         * @returns {string}
+         */
         compile(template, data) {
             return this.engine.compile(template)(data);
         }
 
+        /**
+         * Specific lookup for the contact template id (used in renderContact)
+         * @param {string} containerId
+         * @returns {string}
+         */
         getContactTemplateId(containerId) {
             return 'contact-template';
         }
 
+        /**
+         * Get container ID for the contact based on the containerId
+         * @param {string} containerId
+         * @returns {string}
+         */
         getContactId(containerId) {
             return containerId + '-contact';
         }
 
+        /**
+         * Returns the template ID based on the container ID
+         * @param {string} containerId
+         * @returns {string}
+         */
         getTemplateId(containerId) {
             return containerId + '-template';
         }
 
+        /**
+         * Retrieves the template HTML by the template ID
+         * @param {string} templateId
+         * @returns {string}
+         */
         getTemplate(templateId) {
             return document.getElementById(templateId).innerHTML;
         }
@@ -519,16 +580,21 @@
     };
 
     /**
-     * Data conversion helper to add RatePlanCharge and InvoiceItems to a RatePlan object
+     * Sorts the data provided by Zuora into a reasonable hierarchy
+     * Subscription
+     *   - RatePlans
+     *     - RatePlanCharges
+     *     - InvoiceItems
+     *   - Usages
      */
-    const DataConvert = {
+    const DataSort = {
         addRatePlansForSubscription(subscription, data) {
             const id = subscription.Id || null;
             if (id) {
                 let ratePlans = subscription.RatePlans || [];
                 const rawRatePlans = data.RatePlan || [];
                 rawRatePlans.forEach(function (rp) {
-                    DataConvert.addRPCsForRatePlan(rp, data);
+                    DataSort.addRPCsForRatePlan(rp, data);
                     if (rp.SubscriptionId && rp.SubscriptionId === id) {
                         ratePlans.push(rp);
                     }
@@ -544,7 +610,7 @@
                 rpcs.forEach(function (rpc) {
                     if (rpc.RatePlanId && rpc.RatePlanId === id) {
                         ratePlanRPCs.push(rpc);
-                        DataConvert.addInvoiceItemsForRPC(rpc, data);
+                        DataSort.addInvoiceItemsForRPC(rpc, data);
                     }
                 });
                 ratePlan.RatePlanCharges = ratePlanRPCs;
@@ -579,7 +645,7 @@
     }
 
     /**
-     * Iterate the raw subscriptions (from DataConvert), create a subscription object from the raw subscriptions
+     * Iterate the raw subscriptions (from DataSort), create a subscription object from the raw subscriptions
      * and add the rate plan charge and usage line items for the subscription
      */
     const LineItemsFromSubscriptions = {
@@ -600,6 +666,9 @@
         }
     }
 
+    /**
+     * Adds RatePlanCharge Line Items to a subscription
+     */
     const RatePlanChargeHandler = {
         handle(subscription, rawSubscription) {
             RatePlanChargeHandler.iterateRatePlans(subscription, rawSubscription.RatePlans || []);
@@ -697,6 +766,9 @@
         },
     }
 
+    /**
+     * Adds Usage Line Items to a subscription
+     */
     const UsageHandler = {
         handle(subscription, rawSubscription) {
             UsageHandler.iterateUsages(subscription, rawSubscription.Usages || []);
@@ -776,8 +848,8 @@
         getSubscriptionsFromRawSubscriptions(rawSubscriptions) {
             let subscriptions = [];
             rawSubscriptions.forEach(function (subscription) {
-                DataConvert.addRatePlansForSubscription(subscription, rawData);
-                DataConvert.addUsagesForSubscription(subscription, rawData);
+                DataSort.addRatePlansForSubscription(subscription, rawData);
+                DataSort.addUsagesForSubscription(subscription, rawData);
                 subscriptions.push(subscription);
             })
             return subscriptions;
@@ -791,6 +863,7 @@
     }
 
     //const rawData = {{- Data | to_json -}};
+
     log('Raw data', rawData);
     DataProvider.rawData = rawData;
     const account = DataProvider.getAccount();
