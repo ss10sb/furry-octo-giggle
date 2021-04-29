@@ -95,7 +95,7 @@
     </div>
     <div class="row">
         <div class="column align-right left-container label">Invoice Date:</div>
-        <div class="column"><%= invoice.InvoiceDate %></div>
+        <div class="column"><%= formatter.date(invoice.InvoiceDate) %></div>
     </div>
     <div class="row">
         <div class="column align-right left-container label">Payment Terms:</div>
@@ -103,7 +103,7 @@
     </div>
     <div class="row">
         <div class="column align-right left-container label">Due Date:</div>
-        <div class="column"><%= invoice.DueDate %></div>
+        <div class="column"><%= formatter.date(invoice.DueDate) %></div>
     </div>
     <div class="row">
         <div class="column align-right left-container label">Invoice Currency:</div>
@@ -117,6 +117,46 @@
 <script src="https://cdn.jsdelivr.net/npm/ejs@3.1.6/ejs.min.js"></script>
 <script src="data.complex.js"></script>
 <script>
+
+    class Formatter {
+        constructor(locale = 'en-US', currency = 'USD') {
+            locale = locale || 'en-US';
+            currency = currency || 'USD';
+            this.dateFormatter = new Intl.DateTimeFormat(locale, {year: 'numeric', month: '2-digit', day: '2-digit'});
+            this.currencyFormatter = new Intl.NumberFormat(locale, {
+                style: 'currency',
+                currency: currency
+            });
+            this.numberFormatter = new Intl.NumberFormat(locale);
+        }
+
+        currency(value) {
+            value = parseFloat(value);
+            return this.currencyFormatter.format(value);
+        }
+
+        date(date) {
+            if (date.constructor !== Date) {
+                date = this.convertToDate(date);
+            }
+            return this.dateFormatter.format(date);
+        }
+
+        number(value, isFloat = false) {
+            if (isFloat) {
+                value = parseFloat(value);
+            } else {
+                value = parseInt(value);
+            }
+            return this.numberFormatter.format(value);
+        }
+
+        convertToDate(date) {
+            const parts = date.split('-');
+            // year, month, day - month is zero based
+            return new Date(parts[0], parts[1] - 1, parts[2]);
+        }
+    }
 
     class Output {
         /**
@@ -176,6 +216,7 @@
     DataProvider.rawData = rawData;
     const account = DataProvider.getAccount();
     const invoice = DataProvider.getInvoice();
+    const formatter = new Formatter();
     const output = new Output(ejs);
     output.invoiceHeader('invoice-header', invoice, account);
 </script>

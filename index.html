@@ -192,7 +192,6 @@
     <div><strong><%= account.BillToLegalEntity__c %></strong></div>
     <% } %>
     <div id="bill-to-contact"></div>
-    <div>Currency: <%= account.Currency %></div>
 </script>
 <script id="sold-to-template" type="text-template">
     <h3>Sold To</h3>
@@ -233,9 +232,9 @@
         <tr>
             <td><%= lineItem.Name %></td>
             <td><%= lineItem.Period %></td>
-            <td class="table-number"><%= currency.format(lineItem.Price) %></td>
-            <td class="table-number"><%= lineItem.Quantity %></td>
-            <td class="table-number"><%= currency.format(lineItem.Total) %></td>
+            <td class="table-number"><%= formatter.currency(lineItem.Price) %></td>
+            <td class="table-number"><%= formatter.number(lineItem.Quantity) %></td>
+            <td class="table-number"><%= formatter.currency(lineItem.Total) %></td>
         </tr>
         <% }) %>
         <% subscription.LineItems.Usages.forEach(function(lineItem) { %>
@@ -243,13 +242,13 @@
             <td><%= lineItem.Name %></td>
             <td><%= lineItem.Period %></td>
             <td class="table-number">--</td>
-            <td class="table-number"><%= lineItem.Quantity %></td>
-            <td class="table-number"><%= currency.format(lineItem.Total) %></td>
+            <td class="table-number"><%= formatter.number(lineItem.Quantity) %></td>
+            <td class="table-number"><%= formatter.currency(lineItem.Total) %></td>
         </tr>
         <% }) %>
         <tr>
             <td colspan="4" class="total-label">Subtotal</td>
-            <td class="table-number"><%= currency.format(subscription.Total) %></td>
+            <td class="table-number"><%= formatter.currency(subscription.Total) %></td>
         </tr>
         </tbody>
         <% }) %>
@@ -259,15 +258,15 @@
 <script id="totals-template" type="text/template">
     <tr>
         <td colspan="4" class="total-label">Amount</td>
-        <td class="table-number"><%= currency.format(invoice.AmountWithoutTax) %></td>
+        <td class="table-number"><%= formatter.currency(invoice.AmountWithoutTax) %></td>
     </tr>
     <tr>
         <td colspan="4" class="total-label">Tax</td>
-        <td class="table-number"><%= currency.format(invoice.TaxAmount) %></td>
+        <td class="table-number"><%= formatter.currency(invoice.TaxAmount) %></td>
     </tr>
     <tr>
         <td colspan="4" class="total-label">Total</td>
-        <td class="table-number"><%= currency.format(invoice.Amount) %></td>
+        <td class="table-number"><%= formatter.currency(invoice.Amount) %></td>
     </tr>
 </script>
 <svg class="d-none">
@@ -282,34 +281,65 @@
     </symbol>
 </svg>
 <script src="https://cdn.jsdelivr.net/npm/ejs@3.1.6/ejs.min.js"></script>
-<script src="data.complex.js"></script>
+<script src="data.simple.js"></script>
 <script>
 
     const DEBUG = false;
 
-    class Currency {
-        /**
-         * Create a new currency formatter
-         * @param {string} currency 'USD'
-         * @param {string} locale 'en-US'
-         */
-        constructor(currency = 'USD', locale = 'en-US') {
-            currency = currency || 'USD';
+    /**
+     * Locale (currency, date, number) formatter
+     */
+    class Formatter {
+
+        constructor(locale = 'en-US', currency = 'USD') {
             locale = locale || 'en-US';
-            this.formatter = new Intl.NumberFormat(locale, {
-                style: 'currency',
-                currency: currency
-            });
+            currency = currency || 'USD';
+            this.dateFormatter = new Intl.DateTimeFormat(locale, {year: 'numeric', month: '2-digit', day: '2-digit'});
+            this.currencyFormatter = new Intl.NumberFormat(locale, {style: 'currency', currency: currency});
+            this.numberFormatter = new Intl.NumberFormat(locale);
         }
 
         /**
-         * Format a number with the currency formatter
-         * @param value
-         * @returns {string}
+         * Convert value to currency based on locale and currency setting
+         * @param {*} value
          */
-        format(value) {
+        currency(value) {
             value = parseFloat(value);
-            return this.formatter.format(value);
+            return this.currencyFormatter.format(value);
+        }
+
+        /**
+         * Convert date to date formatted for locale
+         * @param {*} date
+         */
+        date(date) {
+            if (date.constructor !== Date) {
+                date = this.convertToDate(date);
+            }
+            return this.dateFormatter.format(date);
+        }
+
+        /**
+         * Convert value to an integer or float and format based on locale
+         * @param {*} value
+         * @param {boolean} isFloat
+         */
+        number(value, isFloat = false) {
+            if (isFloat) {
+                value = parseFloat(value);
+            } else {
+                value = parseInt(value);
+            }
+            return this.numberFormatter.format(value);
+        }
+
+        /**
+         * Convert date string (yyyy-mm-dd) to date object
+         */
+        convertToDate(date) {
+            const parts = date.split('-');
+            // year, month, day - month is zero based
+            return new Date(parts[0], parts[1] - 1, parts[2]);
         }
     }
 
@@ -713,7 +743,9 @@
         setPeriod(sub, item, ratePlanCharge) {
             if (!item.Period) {
                 ratePlanCharge.InvoiceItems.forEach(function (invoiceItem) {
-                    item.Period = `${invoiceItem.ServiceStartDate}-${invoiceItem.ServiceEndDate}`;
+                    const start = formatter.date(invoiceItem.ServiceStartDate);
+                    const end = formatter.date(invoiceItem.ServiceEndDate);
+                    item.Period = `${start}-${end}`;
                     return false;
                 });
             }
@@ -867,7 +899,7 @@
     log('Raw data', rawData);
     DataProvider.rawData = rawData;
     const account = DataProvider.getAccount();
-    const currency = new Currency(account.Currency);
+    const formatter = new Formatter('en-US', account.Currency);
     const subscriptions = Subscriptions.getSubscriptionsFromRawSubscriptions(DataProvider.getSubscriptions());
     log('Subscriptions pre-line items', subscriptions);
     LineItemsFromSubscriptions.handlers.push(RatePlanChargeHandler, UsageHandler);
