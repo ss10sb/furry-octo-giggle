@@ -58,7 +58,7 @@
             }
 
             tfoot {
-                display: table-footer-group;
+                display: table-row-group;
             }
         }
 
@@ -111,7 +111,11 @@
         }
 
         .bg-green {
-            background: #009A10;
+            background: #799b28;
+        }
+
+        .bg-blue {
+            background: #458FCD;
         }
 
         .fg-white {
@@ -156,7 +160,7 @@
 <body>
 <section class="page">
     <div class="card">
-        <div class="card-header bg-green fg-white padding-x-25em padding-y-50em">
+        <div class="card-header bg-blue fg-white padding-x-25em padding-y-50em">
             Contact Information
         </div>
         <div class="flex-container flex-justify-space-between margin-bottom-1em">
@@ -204,7 +208,7 @@
 <script id="subscriptions-line-items-template" type="text/template">
     <table>
         <thead>
-        <tr class="card-header bg-green fg-white">
+        <tr class="card-header bg-blue fg-white">
             <th colspan="5">Service Plan Summary</th>
         </tr>
         <tr class="inverse-header">
@@ -281,7 +285,7 @@
     </symbol>
 </svg>
 <script src="https://cdn.jsdelivr.net/npm/ejs@3.1.6/ejs.min.js"></script>
-<script src="data.simple.js"></script>
+<script src="data.complex.js"></script>
 <script>
 
     const DEBUG = false;
